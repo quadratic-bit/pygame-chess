@@ -3,7 +3,6 @@ from typing import Optional
 import pygame
 
 from board import Chessboard, Move
-from chess.utils import render_board
 
 
 def main():
@@ -14,7 +13,7 @@ def main():
         "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
     grabbing: Optional[tuple[int, int]] = None
     hovering = False
-    render_board(screen, board)
+    board.render(screen)
     pygame.display.flip()
     clock = pygame.time.Clock()
     FPS = 60
@@ -27,7 +26,7 @@ def main():
             if event.type == pygame.MOUSEBUTTONDOWN and \
                     event.button == pygame.BUTTON_LEFT and hovering:
                 grabbing = (event.pos[0] // 100, event.pos[1] // 100)
-                render_board(screen, board, grabbing, event.pos)
+                board.render(screen, grabbing, event.pos)
                 pygame.display.flip()
             elif event.type == pygame.MOUSEBUTTONUP and \
                     event.button == pygame.BUTTON_LEFT:
@@ -35,10 +34,12 @@ def main():
                 if pygame.mouse.get_focused() and grabbing is not None and \
                         released != grabbing:
                     move = Move(grabbing[0] + grabbing[1] * 8,
-                                released[0] + released[1] * 8)
-                    board.make_move(move)
+                                released[0] + released[1] * 8,
+                                board.at(*released))
+                    if board.can_make(move):
+                        board.make_move(move)
                 grabbing = None
-                render_board(screen, board)
+                board.render(screen)
                 pygame.display.flip()
         if pygame.mouse.get_focused():
             pos = pygame.mouse.get_pos()
@@ -49,7 +50,7 @@ def main():
                 pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_ARROW)
                 hovering = False
             if grabbing:
-                render_board(screen, board, grabbing, pos)
+                board.render(screen, grabbing, pos)
                 pygame.display.flip()
         else:
             grabbing = None

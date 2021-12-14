@@ -1,20 +1,20 @@
 from __future__ import annotations
 
+import os
 from typing import NamedTuple, Optional
 
 import numpy as np
-from pygame.sprite import Sprite, AbstractGroup
+import pygame
 
 import chess.utils as utils
 
-
-Move = NamedTuple("Move", (("p_from", int), ("p_to", int)))
+Move = NamedTuple("Move", (("p_from", int), ("p_to", int), ("captured", int)))
 
 
 class Chessboard:
     """Chessboard interface (8x8 field)"""
 
-    def __init__(self) -> None:
+    def __init__(self, light_colour="#F0D9B5", dark_colour="#B58863") -> None:
         """
         Leading byte: 8 - White / 16 - Black
         Trailing byte: 0 - Empty
@@ -33,13 +33,77 @@ class Chessboard:
         self._en_passant_target: Optional[int] = None
         # Half-move clock
         self._halfmoves = 0
+        # Store piece types
+        self._pieces_dict = {1: "pawn", 2: "knight", 3: "bishop",
+                             4: "rook", 5: "queen", 6: "king"}
+        # Board appearance
+        self._light_colour = pygame.Color(light_colour)
+        self._dark_colour = pygame.Color(dark_colour)
+        self._side = 100  # px
+
+    @property
+    def board(self) -> np.ndarray:
+        return self._board
+
+    def render(self, screen: pygame.Surface,
+               skip=None, pos=None) -> None:
+        """Render chessboard"""
+        if skip is not None and pos is None:
+            raise ValueError("skip is not None but pos is None")
+        screen.fill(self._dark_colour)
+        group = pygame.sprite.Group()
+        path = os.path.dirname(os.path.abspath(__file__))
+        grabbed_data = None
+        for i, piece in enumerate(self._board):
+            x, y = i % 8, i // 8
+            if (x + y) % 2 == 0:
+                pygame.draw.rect(screen, self._light_colour,
+                                 (x * self._side, y * self._side,
+                                  self._side, self._side))
+            if piece == 0:
+                continue
+            elif (x, y) == skip:
+                grabbed_data = os.path.join(
+                    path, "data",
+                    f"{self._pieces_dict[utils.extract_piece(piece)]}_"
+                    f"{'w' if utils.extract_colour(piece) == 1 else 'b'}.png"
+                ), i, group
+            else:
+                ChessPiece(
+                    os.path.join(
+                        path, "data",
+                        f"{self._pieces_dict[utils.extract_piece(piece)]}_"
+                        f"{'w' if utils.extract_colour(piece) == 1 else 'b'}"
+                        f".png"), i, group)
+        if grabbed_data is not None:
+            grabbed_piece = ChessPiece(*grabbed_data)
+            grabbed_piece.rect.x = pos[0] - 50
+            grabbed_piece.rect.y = pos[1] - 50
+        group.draw(screen)
 
     def at(self, x: int, y: int) -> int:
         if 0 <= x <= 7 and 0 <= y <= 7:
             return self._board[x + y * 8]
         return 0
 
+    def can_make(self, move: Move) -> bool:
+        """Check if the move is corrct"""
+        this_piece, other_piece = \
+            self._board[move.p_from], self._board[move.p_to]
+        if not this_piece:
+            return False
+        this_colour = utils.extract_colour(this_piece)
+        this_type = utils.extract_piece(this_piece)
+        other_colour = utils.extract_colour(other_piece)
+        other_type = utils.extract_piece(other_piece)
+        if other_type and self._pieces_dict[other_type] == "king" or \
+                other_colour == this_colour:
+            return False
+        
+        return True
+
     def make_move(self, move: Move):
+        """Make move on the board (no checking)"""
         self._board[move.p_to] = self._board[move.p_from]
         self._board[move.p_from] = 0
 
@@ -114,15 +178,12 @@ class Chessboard:
         except AssertionError as e:
             raise ValueError(str(e))
 
-    @property
-    def board(self) -> np.ndarray:
-        return self._board
 
-
-class ChessPiece(Sprite):
+class ChessPiece(pygame.sprite.Sprite):
     """Chess Piece class"""
 
-    def __init__(self, sprite_img: str, pos: int, *groups: AbstractGroup):
+    def __init__(self, sprite_img: str, pos: int,
+                 *groups: pygame.sprite.AbstractGroup):
         super().__init__(*groups)
         self.image = utils.load_image(sprite_img)
         self.rect = self.image.get_rect()
