@@ -28,16 +28,10 @@ class ChessBot:
         # Opponent's (player) colour
         self._opponent_colour = PieceColour.White \
             if colour == PieceColour.Black else PieceColour.Black
-        # First n moves will be completely random
-        self._random_moves = 0
         # Set randomness to equally good moves
         self._random_state = 0.2
         # Debug variable to log evaluated states amount
         self._count_states = 0
-
-    def set_random_moves(self, moves_n: int) -> None:
-        """First moves_n moves will be random"""
-        self._random_moves = max(0, moves_n)
 
     @staticmethod
     def _get_ordered_moves(board: Chessboard,
@@ -45,6 +39,15 @@ class ChessBot:
         """Order moves to reduce amount of states to evaluate"""
         moves = board.get_all_moves(colour)
         return sorted(list(moves), reverse=True)
+
+    @staticmethod
+    def _get_depth(board: Chessboard) -> int:
+        halfmoves = board.halfmoves
+        return \
+            1 if halfmoves < 7 else \
+            2 if halfmoves < 13 else \
+            3 if halfmoves < 19 else \
+            4
 
     def _evaluate(self, board_state: Chessboard) -> Number:
         """Resolve position score for this colour"""
@@ -64,12 +67,8 @@ class ChessBot:
               beta: Number, depth: int) -> tuple[Number, Move]:
         """Maxi part of minimax algorithm"""
         # Simple state evaluation on 0 depth
-        if depth == 0:
+        if depth < 1:
             return self._evaluate(board_), move_
-        # Checking for random moves
-        if self._random_moves > 0:
-            self._random_moves -= 1
-            return 0, choice(board_.get_all_moves(self._colour))
         # Initialising best found move variable (score, move)
         best_state: tuple[Number, Optional[Move]] = -np.inf, None
         # Iterating through ordered moves to find the best
@@ -98,7 +97,7 @@ class ChessBot:
               beta: Number, depth: int) -> tuple[Number, Move]:
         """Mini part of minimax algorithm"""
         # Simple state evaluation on 0 depth
-        if depth == 0:
+        if depth < 1:
             return self._evaluate(board_), move_
         # Initialising best found move variable (score, move)
         best_state: tuple[Number, Optional[Move]] = np.inf, None
@@ -125,9 +124,11 @@ class ChessBot:
         return best_state  # type: ignore
 
     def get_move(self, board_: Chessboard, last_move_: Move,
-                 depth=3, debug=False) -> Move:
+                 debug=False) -> Move:
         # Logging
         self._count_states = 0
+        # Depth
+        depth = self._get_depth(board_)
         if not debug:
             # Returning result
             return self._maxi(board_, last_move_, -np.inf, np.inf, depth)[1]
@@ -136,8 +137,7 @@ class ChessBot:
         # Calculating result
         result = self._maxi(board_, last_move_, -np.inf, np.inf, depth)[1]
         end = perf_counter()
-        console.log(f"Performed the best move in [bold cyan]"
-                    f"{round((end - start) * 1000)}[/bold cyan]ms "
-                    f"with [bold cyan]{self._count_states}[/bold cyan] "
-                    f"positions evaluated.")
+        console.log(f"[bold cyan]{round(end - start, 1)}[/bold cyan]s :"
+                    f" [bold cyan]{self._count_states}[/bold cyan] positions :"
+                    f" [bold cyan]{depth}[/bold cyan] depth")
         return result

@@ -21,8 +21,6 @@ def main():
     COLOUR = PieceColour.White
     # Initialising the AI
     bot = ChessBot()
-    # Let a first couple of moves be completely random!
-    bot.set_random_moves(2)
     # Defining variables to interact with player
     grabbing: Optional[tuple[int, int]] = None
     hovering = False
@@ -77,7 +75,7 @@ def main():
                 # Bot's turn
                 if last_move is not None:
                     board.make_move(
-                        bot.get_move(board, last_move, depth=3, debug=True))
+                        bot.get_move(board, last_move, debug=True))
                     # Rendering board after bot's turn
                     board.render(screen)
                     pygame.display.flip()
