@@ -55,6 +55,10 @@ class Chessboard:
     def board(self) -> np.ndarray:
         return self._board
 
+    @property
+    def halfmoves(self) -> int:
+        return self._halfmoves
+
     def render(self, screen: pygame.Surface,
                skip=None, pos=None) -> None:
         """Render chessboard"""
@@ -142,11 +146,13 @@ class Chessboard:
         Make move on the board
         Use board.make_move() to check if move is correct
         """
+        self._halfmoves += 1
         self._board[move.To] = self._board[move.From]
         self._board[move.From] = Piece.empty()
 
     def unmake_move(self, move: Move) -> None:
         """Unmake move on the board (no additional checking)"""
+        self._halfmoves -= 1
         self._board[move.From] = self._board[move.To]
         self._board[move.To] = move.Captured
 
@@ -164,12 +170,78 @@ class Chessboard:
 
     def _king_is_safe(self, colour: PieceColour) -> bool:
         """Check if king is safe on current board state"""
-        king = Piece(PieceType.King, colour)
-        king_pos = np.where(self._board == king)[0][0]
-        for i, piece in enumerate(self._board):
-            if piece.Type != PieceType.Empty and piece.Colour != colour:
-                if self._force_can_make(Move(i, king_pos, king)):
+        king_pos = np.where(self._board == Piece(PieceType.King, colour))[0][0]
+        king_x, king_y = king_pos % 8, king_pos // 8
+        right_side = range(king_x + 1, 8)
+        left_side = range(king_x - 1, -1, -1)
+        bottom_side = range(king_y + 1, 8)
+        top_side = range(king_y - 1, -1, -1)
+        o_colour = PieceColour.White if \
+            colour == PieceColour.Black else PieceColour.Black
+        o_pawn = Piece(PieceType.Pawn, o_colour)
+        o_knight = Piece(PieceType.Knight, o_colour)
+        o_bishop = Piece(PieceType.Bishop, o_colour)
+        o_rook = Piece(PieceType.Rook, o_colour)
+        o_queen = Piece(PieceType.Queen, o_colour)
+        o_king = Piece(PieceType.King, o_colour)
+
+        # Horizontal and vertical
+        def _line(iter_side: range, const_x: bool) -> bool:
+            for component in iter_side:
+                attacking_piece = self.at(king_x, component) \
+                    if const_x \
+                    else self.at(component, king_y)
+                if attacking_piece.Type != PieceType.Empty:
+                    if attacking_piece == o_rook or \
+                            attacking_piece == o_queen:
+                        return True
                     return False
+            return False
+
+        if _line(right_side, False) or _line(left_side, False) or \
+                _line(top_side, True) or _line(bottom_side, True):
+            return False
+
+        # All diagonals
+        def _diagonal(iter_side_x: range, iter_side_y: range) -> bool:
+            for x, y in zip(iter_side_x, iter_side_y):
+                attacking_piece = self.at(x, y)
+                if attacking_piece.Type != PieceType.Empty:
+                    if attacking_piece == o_bishop or \
+                            attacking_piece == o_queen:
+                        return True
+                    return False
+            return False
+
+        if _diagonal(right_side, bottom_side) or \
+                _diagonal(left_side, bottom_side) or \
+                _diagonal(right_side, top_side) or \
+                _diagonal(left_side, top_side):
+            return False
+
+        # Pawns
+        sign_ = 1 if colour == PieceColour.White else -1
+        if self.at(king_x + 1, king_y + sign_) == o_pawn or \
+                self.at(king_x - 1, king_y + sign_) == o_pawn:
+            return False
+
+        # Knight
+        if self.at(king_x + 1, king_y + 2) == o_knight or \
+                self.at(king_x - 1, king_y + 2) == o_knight or \
+                self.at(king_x + 2, king_y + 1) == o_knight or \
+                self.at(king_x - 2, king_y + 1) == o_knight or \
+                self.at(king_x + 1, king_y - 2) == o_knight or \
+                self.at(king_x - 1, king_y - 2) == o_knight or \
+                self.at(king_x + 2, king_y - 1) == o_knight or \
+                self.at(king_x - 2, king_y - 1) == o_knight:
+            return False
+
+        # King
+        opponent_king_pos = np.where(self._board == o_king)[0][0]
+        if self._can_king_make(opponent_king_pos % 8,
+                               opponent_king_pos // 8,
+                               king_x, king_y):
+            return False
         return True
 
     def _can_pawn_make(self, x1: int, y1: int, x2: int, y2: int) -> bool:
