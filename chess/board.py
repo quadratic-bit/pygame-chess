@@ -49,6 +49,8 @@ class Chessboard:
         # Board appearance
         self._light_colour = pygame.Color(light_colour)
         self._dark_colour = pygame.Color(dark_colour)
+        self._light_complementary = pygame.Color("#DBAB84")
+        self._dark_complementary = pygame.Color("#DBC095")
         self._side = 100  # px
 
     @property
@@ -59,8 +61,15 @@ class Chessboard:
     def halfmoves(self) -> int:
         return self._halfmoves
 
+    def set_colours(self, light_colour: str, dark_colour: str,
+                    light_complementary: str, dark_complementary: str) -> None:
+        self._light_colour = pygame.Color(light_colour)
+        self._dark_colour = pygame.Color(dark_colour)
+        self._light_complementary = pygame.Color(light_complementary)
+        self._dark_complementary = pygame.Color(dark_complementary)
+
     def render(self, screen: pygame.Surface,
-               skip=None, pos=None) -> None:
+               last_move=None, skip=None, pos=None) -> None:
         """Render chessboard"""
         if skip is not None and pos is None:
             raise ValueError("skip is not None but pos is None")
@@ -70,7 +79,15 @@ class Chessboard:
         grabbed_data = None
         for i, piece in enumerate(self._board):
             x, y = i % 8, i // 8
-            if (x + y) % 2 == 0:
+            if last_move is not None and last_move.From == i:
+                pygame.draw.rect(screen, self._light_complementary,
+                                 (x * self._side, y * self._side,
+                                  self._side, self._side))
+            elif last_move is not None and last_move.To == i or (x, y) == skip:
+                pygame.draw.rect(screen, self._dark_complementary,
+                                 (x * self._side, y * self._side,
+                                  self._side, self._side))
+            elif (x + y) % 2 == 0:
                 pygame.draw.rect(screen, self._light_colour,
                                  (x * self._side, y * self._side,
                                   self._side, self._side))
@@ -167,6 +184,9 @@ class Chessboard:
                 if self.can_make(move):
                     moves.append(move)
         return moves
+
+    def king_is_safe(self, colour: PieceColour) -> bool:
+        return self._king_is_safe(colour)
 
     def _king_is_safe(self, colour: PieceColour) -> bool:
         """Check if king is safe on current board state"""

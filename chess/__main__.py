@@ -1,3 +1,4 @@
+import os
 from typing import Optional
 
 import pygame
@@ -15,15 +16,26 @@ def main():
     screen = pygame.display.set_mode((800, 800))
     pygame.display.set_caption("Chess")
     # Creating a board using FEN
-    # 1r1q3r/3b2bk/p5pp/2QB4/5p2/P5nP/1PP5/2KRR3 b - - 3 6
+    # Start position: rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
+    # Advanced:       1r1q3r/3b2bk/p5pp/2QB4/5p2/P5nP/1PP5/2KRR3 b - - 6 12
     board = Chessboard.from_fen(
         "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
-    COLOUR = PieceColour.White
+    # Colour
+    COLOUR_PLAYER = PieceColour.White
+    COLOUR_OPPONENT = PieceColour.Black
+    # Sounds
+    path = os.path.dirname(os.path.abspath(__file__))
+    sound_common = pygame.mixer.Sound(os.path.join(path, "data", "common.ogg"))
+    sound_check = pygame.mixer.Sound(os.path.join(path, "data", "check.ogg"))
     # Initialising the AI
     bot = ChessBot()
     # Defining variables to interact with player
     grabbing: Optional[tuple[int, int]] = None
     hovering = False
+    # Render Flag
+    last_move: Optional[Move] = None
+    # Bot Flag
+    last_move_uncaught = False
     # Initial rendering
     board.render(screen)
     pygame.display.flip()
@@ -43,18 +55,16 @@ def main():
                     event.button == pygame.BUTTON_LEFT and hovering:
                 # Find grabbed piece
                 grabbing = (event.pos[0] // 100, event.pos[1] // 100)
-                if board.at(*grabbing).Colour != COLOUR:
+                if board.at(*grabbing).Colour != COLOUR_PLAYER:
                     # Wrong colour!
                     grabbing = None
                 else:
                     # Render a board with that grabbed piece being grabbed
-                    board.render(screen, grabbing, event.pos)
+                    board.render(screen, last_move, grabbing, event.pos)
                     pygame.display.flip()
             # Releasing LMB
             elif event.type == pygame.MOUSEBUTTONUP and \
                     event.button == pygame.BUTTON_LEFT:
-                # Bot Flag
-                last_move: Optional[Move] = None
                 # Get position where player dropped the piece
                 released = (event.pos[0] // 100, event.pos[1] // 100)
                 if pygame.mouse.get_focused() and grabbing is not None and \
@@ -66,18 +76,29 @@ def main():
                     # If we can make move -> let the bot make the next one
                     if board.can_make(move):
                         board.make_move(move)
+                        if board.king_is_safe(COLOUR_OPPONENT):
+                            sound_common.play()
+                        else:
+                            sound_check.play()
                         last_move = move
+                        last_move_uncaught = True
                 # Stop grabbing
                 grabbing = None
                 # Rendering board after releasing piece
-                board.render(screen)
+                board.render(screen, last_move)
                 pygame.display.flip()
                 # Bot's turn
-                if last_move is not None:
-                    board.make_move(
-                        bot.get_move(board, last_move, debug=True))
+                if last_move is not None and last_move_uncaught:
+                    last_move = bot.get_move(board, last_move, debug=True)
+                    board.make_move(last_move)
+                    if board.king_is_safe(COLOUR_PLAYER):
+                        sound_common.play()
+                    else:
+                        sound_check.play()
+                    # Updating flag
+                    last_move_uncaught = False
                     # Rendering board after bot's turn
-                    board.render(screen)
+                    board.render(screen, last_move)
                     pygame.display.flip()
         # Handling mouse and cursor
         if pygame.mouse.get_focused():
@@ -91,12 +112,12 @@ def main():
                 hovering = False
             # Rendering board and a hovering piece
             if grabbing:
-                board.render(screen, grabbing, pos)
+                board.render(screen, last_move, grabbing, pos)
                 pygame.display.flip()
         else:
             # Mouse is out of window -> stop grabbing
             grabbing = None
-            board.render(screen)
+            board.render(screen, last_move)
             pygame.display.flip()
             hovering = False
         clock.tick(FPS)
