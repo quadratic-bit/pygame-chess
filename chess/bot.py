@@ -32,6 +32,8 @@ class ChessBot:
         self._random_state = 0.2
         # Debug variable to log evaluated states amount
         self._count_states = 0
+        # Store hashed tables to prune repeated positions
+        self._zobrist_hash: set[int] = set()
 
     @staticmethod
     def _get_ordered_moves(board: Chessboard,
@@ -63,6 +65,11 @@ class ChessBot:
     def _maxi(self, board_: Chessboard, move_: Move, alpha: Number,
               beta: Number, depth: int) -> tuple[Number, Move]:
         """Maxi part of minimax algorithm"""
+        # Prune evaluated position
+        board_hash = board_.hash()
+        if board_hash in self._zobrist_hash:
+            return -np.inf, move_
+        self._zobrist_hash.add(board_hash)
         # Simple state evaluation on 0 depth
         if depth < 1:
             return self._evaluate(board_), move_
@@ -93,6 +100,11 @@ class ChessBot:
     def _mini(self, board_: Chessboard, move_: Move, alpha: Number,
               beta: Number, depth: int) -> tuple[Number, Move]:
         """Mini part of minimax algorithm"""
+        # Prune evaluated position
+        board_hash = board_.hash()
+        if board_hash in self._zobrist_hash:
+            return np.inf, move_
+        self._zobrist_hash.add(board_hash)
         # Simple state evaluation on 0 depth
         if depth < 1:
             return self._evaluate(board_), move_
@@ -126,6 +138,8 @@ class ChessBot:
         self._count_states = 0
         # Depth
         depth = self._get_depth(board_)
+        # Hash
+        self._zobrist_hash = set()
         if not debug:
             # Returning result
             return self._maxi(board_, last_move_, -np.inf, np.inf, depth)[1]
@@ -134,7 +148,7 @@ class ChessBot:
         # Calculating result
         result = self._maxi(board_, last_move_, -np.inf, np.inf, depth)[1]
         end = perf_counter()
-        console.log(f"[bold cyan]{round(end - start, 1)}[/bold cyan]s :"
-                    f" [bold cyan]{self._count_states}[/bold cyan] positions :"
-                    f" [bold cyan]{depth}[/bold cyan] depth")
+        console.log(f"[bold blue]{round(end - start, 1)}[/bold blue]s :"
+                    f" [bold blue]{self._count_states}[/bold blue] positions :"
+                    f" [bold blue]{depth}[/bold blue] depth")
         return result

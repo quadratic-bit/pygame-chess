@@ -8,7 +8,8 @@ from typing import Optional, Callable
 import numpy as np
 import pygame
 
-from chess.const import PieceType, PieceColour, Piece, CastlingType, Move
+from chess.const import PieceType, PieceColour, Piece, CastlingType, Move, \
+    PIECE_INDICES, init_zobrist
 from chess.utils import load_image
 
 
@@ -46,6 +47,8 @@ class Chessboard:
         self._en_passant_target: Optional[int] = None
         # Half-move clock
         self._halfmoves = 0
+        # Init zobrist hash
+        self._z_table = init_zobrist()
         # Board appearance
         self._light_colour = pygame.Color(light_colour)
         self._dark_colour = pygame.Color(dark_colour)
@@ -60,6 +63,15 @@ class Chessboard:
     @property
     def halfmoves(self) -> int:
         return self._halfmoves
+
+    def hash(self) -> int:
+        h = 0
+        for i in range(64):
+            piece = self._board[i]
+            if piece.Type != PieceType.Empty:
+                j = PIECE_INDICES[piece.Type.value | piece.Colour.value]
+                h ^= self._z_table[i][j]
+        return h
 
     def set_colours(self, light_colour: str, dark_colour: str,
                     light_complementary: str, dark_complementary: str) -> None:
@@ -396,13 +408,11 @@ class Chessboard:
             assert alg_cell[1].isdigit() and 0 < int(alg_cell[1]) < 9
             tmp_board._en_passant_target = int(
                 (8 - int(alg_cell[1])) * 8 + ord(alg_cell[0]) - 97)
-        # Parse Fifth field (Half-move Clock)
-        assert fields[4].isnumeric() and int(fields[4]) >= 0, error_info
-        tmp_board._halfmoves = int(fields[4])
-        # Parse Sixth field (Full-move Number)
-        assert \
-            fields[5].isnumeric() and \
-            abs(tmp_board._halfmoves * 2 - int(fields[5])) < 2, error_info
+        # Parse Fifth field (Full-move Number)
+        assert fields[4].isnumeric()
+        # Parse Sixth field (Half-move Clock)
+        assert fields[5].isnumeric() and int(fields[5]) >= 0, error_info
+        tmp_board._halfmoves = int(fields[5])
         return tmp_board
 
     @classmethod
