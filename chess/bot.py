@@ -19,10 +19,10 @@ class ChessBot:
         Ordering Moves     : 1418  states
         """
         # Pieces' scores for evaluating board states
-        self._scores: dict[PieceType, Number] = {
+        self._scores: dict[PieceType, int] = {
             PieceType.Pawn: 1, PieceType.Knight: 3,
             PieceType.Bishop: 3, PieceType.Rook: 5,
-            PieceType.Queen: 9, PieceType.King: np.inf}
+            PieceType.Queen: 9, PieceType.King: 0}
         # Bot's colour
         self._colour = colour
         # Opponent's (player) colour
@@ -44,9 +44,8 @@ class ChessBot:
     def _get_depth(board: Chessboard) -> int:
         halfmoves = board.halfmoves
         return \
-            1 if halfmoves < 7 else \
-            2 if halfmoves < 13 else \
-            3 if halfmoves < 19 else \
+            2 if halfmoves < 7 else \
+            3 if halfmoves < 25 else \
             4
 
     def _evaluate(self, board_state: Chessboard) -> Number:
@@ -56,11 +55,9 @@ class ChessBot:
             # Don't count empty cells
             if piece.Type == PieceType.Empty:
                 continue
-            side = 1 if piece.Colour == self._colour else -1
-            type_ = piece.Type
-            # Don't count king
-            if type_ != PieceType.King:
-                counter += side * self._scores[type_]
+            counter += self._scores[piece.Type] * (
+                1 if piece.Colour == self._colour
+                else -1)
         return counter
 
     def _maxi(self, board_: Chessboard, move_: Move, alpha: Number,
