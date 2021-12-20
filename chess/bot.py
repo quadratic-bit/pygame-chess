@@ -39,8 +39,9 @@ class ChessBot:
     def _get_ordered_moves(board: Chessboard,
                            colour: PieceColour) -> list[Move]:
         """Order moves to reduce amount of states to evaluate"""
-        moves = board.get_all_moves(colour)
-        return sorted(list(moves), reverse=True)
+        moves = list(board.get_all_moves(colour))
+        moves.sort(reverse=True)
+        return moves
 
     @staticmethod
     def _get_depth(board: Chessboard) -> int:
@@ -82,8 +83,7 @@ class ChessBot:
             # Making move on the board
             board_.make_move(move)
             # Evaluating the board state
-            score = self._mini(board_, move_, alpha, beta,
-                               depth - 1)
+            score = self._mini(board_, move_, alpha, beta, depth - 1)
             # Updating the best score
             if score[0] > best_state[0] or \
                     (score[0] == best_state[0] and
@@ -117,8 +117,7 @@ class ChessBot:
             # Making move on the board
             board_.make_move(move)
             # Evaluating the board state
-            score = self._maxi(board_, move_, alpha, beta,
-                               depth - 1)
+            score = self._maxi(board_, move_, alpha, beta, depth - 1)
             # Updating the best score
             if score[0] < best_state[0] or \
                     (score[0] == best_state[0] and

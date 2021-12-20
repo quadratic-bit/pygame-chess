@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum, auto
 from random import randint
 from typing import Optional, Union
 
-import numpy as np
 from rich.console import Console
 
 Number = Union[float, int]
@@ -39,16 +38,15 @@ class Piece:
 
 
 class CastlingType(Enum):
-    BlackKing = auto()
-    WhiteKing = auto()
-    BlackQueen = auto()
-    WhiteQueen = auto()
+    KingSide = auto()
+    QueenSide = auto()
 
 
-@dataclass(init=True, frozen=True)
+@dataclass(frozen=True)
 class MoveFlags:
-    PawnPromotion: Optional[Piece] = None
-    Castling: Optional[CastlingType] = None
+    PawnPromotion: Optional[Piece] = field(default=None)
+    Castling: Optional[CastlingType] = field(default=None)
+    LoseCastling: Optional[set[CastlingType]] = field(default=None)
 
 
 SCORES: dict[PieceType, Number] = {
@@ -77,7 +75,7 @@ class Move:
     From: int
     To: int
     Captured: Piece
-    Flags = MoveFlags()
+    Flags: MoveFlags = field(default=MoveFlags())
 
     def __lt__(self, other: Move) -> bool:
         return SCORES[self.Captured.Type] < SCORES[other.Captured.Type]
@@ -85,4 +83,4 @@ class Move:
 
 def init_zobrist() -> list[list[int]]:
     """Fill a table with random bits"""
-    return [[randint(1, 2**64 - 1) for _ in range(12)] for _ in range(64)]
+    return [[randint(1, 2 ** 64 - 1) for _ in range(12)] for _ in range(64)]

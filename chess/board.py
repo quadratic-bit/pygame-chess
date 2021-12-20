@@ -9,7 +9,7 @@ import numpy as np
 import pygame
 
 from chess.const import PieceType, PieceColour, Piece, CastlingType, Move, \
-    PIECE_INDICES, init_zobrist
+    PIECE_INDICES, init_zobrist, MoveFlags
 from chess.utils import load_image
 
 
@@ -22,11 +22,16 @@ class Chessboard:
         # Active colour
         self._active_colour = PieceColour.White
         # Castling rights
-        self._castling_rights: dict[CastlingType, bool] = {
-            CastlingType.BlackKing: False,
-            CastlingType.BlackQueen: False,
-            CastlingType.WhiteKing: False,
-            CastlingType.WhiteQueen: False}
+        self._castling_rights = {
+            PieceColour.White: {
+                CastlingType.KingSide: False,
+                CastlingType.QueenSide: False
+            },
+            PieceColour.Black: {
+                CastlingType.KingSide: False,
+                CastlingType.QueenSide: False
+            }
+        }
         # Store piece types as strings
         self._get_piece_str = {PieceType.Pawn: "pawn",
                                PieceType.Knight: "knight",
@@ -130,19 +135,19 @@ class Chessboard:
             return self._board[x + y * 8]
         return Piece.empty()
 
-    def _force_can_make(self, move: Move) -> bool:
+    def _force_can_make(self, move: Move) -> Optional[Move]:
         """
-        Check if the move is correct
+        Check if the move is correct with adding corresponding flags
         (!) Without checking king safety and turn order
         """
         # Can't make incorrect move
         if move.Captured != self._board[move.To]:
-            return False
-        this_piece, other_piece = \
-            self._board[move.From], self._board[move.To]
+            return None
+        this_piece: Piece = self._board[move.From]
+        other_piece: Piece = self._board[move.To]
         # Can't make move w/o piece itself
         if this_piece.Type == PieceType.Empty:
-            return False
+            return None
         # Resolving colours and types
         # # Can't make move when it's not your turn
         # if this_piece[0] != self._active_colour:
@@ -151,39 +156,113 @@ class Chessboard:
         # Can't eat pieces of your colour
         if other_piece.Type != PieceType.Empty and \
                 other_piece.Colour == this_piece.Colour:
-            return False
+            return None
+        # Resolving piece xy coordinates to calculate move possibility
         y1, y2 = move.From // 8, move.To // 8
         x1, x2 = move.From % 8, move.To % 8
-        return self._get_validator[this_piece.Type](x1, y1, x2, y2)
+        # Castling
+        if this_piece.Type == PieceType.King and \
+                y1 == y2 and abs(x1 - x2) == 2 \
+                and move.Captured == Piece.empty():
+            castling = CastlingType.QueenSide if x1 - x2 == 2 \
+                else CastlingType.KingSide
+            if castling == CastlingType.QueenSide and (
+                    self._board[move.To - 1] != Piece.empty() or
+                    self._board[move.From - 1] != Piece.empty() or
+                    self._board[move.From - 2] != Piece.empty()):
+                return None
+            elif castling == CastlingType.KingSide and (
+                    self._board[move.From + 1] != Piece.empty() or
+                    self._board[move.From + 2] != Piece.empty()):
+                return None
+            if self._castling_rights[this_piece.Colour][castling]:
+                lost_castling = {castling}
+                other_side = CastlingType.KingSide \
+                    if castling == CastlingType.QueenSide \
+                    else CastlingType.QueenSide
+                if self._castling_rights[this_piece.Colour][other_side]:
+                    lost_castling.add(other_side)
+                move = Move(move.From, move.To, move.Captured,
+                            MoveFlags(Castling=castling,
+                                      LoseCastling=lost_castling))
+            else:
+                return None
+        elif this_piece.Type == PieceType.King:
+            lost_castling = set()
+            if self._castling_rights[this_piece.Colour][
+                    CastlingType.KingSide]:
+                lost_castling.add(CastlingType.KingSide)
+            if self._castling_rights[this_piece.Colour][
+                    CastlingType.QueenSide]:
+                lost_castling.add(CastlingType.QueenSide)
+            move = Move(move.From, move.To, move.Captured,
+                        MoveFlags(LoseCastling=lost_castling))
+        elif this_piece.Type == PieceType.Rook:
+            if x1 == 0 and self._castling_rights[this_piece.Colour][
+                    CastlingType.QueenSide]:
+                move = Move(move.From, move.To,
+                            move.Captured,
+                            MoveFlags(LoseCastling={CastlingType.QueenSide}))
+            elif x1 == 7 and self._castling_rights[this_piece.Colour][
+                    CastlingType.KingSide]:
+                move = Move(move.From, move.To,
+                            move.Captured,
+                            MoveFlags(LoseCastling={CastlingType.KingSide}))
+        if self._get_validator[this_piece.Type](x1, y1, x2, y2):
+            return move
+        return None
 
-    def can_make(self, move: Move) -> bool:
+    def can_make(self, move: Move) -> Optional[Move]:
         """Check if the move is correct"""
         # Checking basic move correctness
-        if self._force_can_make(move):
+        completed_move = self._force_can_make(move)
+        if completed_move is not None:
             # Can't capture the king
             if self._board[move.To].Type == PieceType.King:
-                return False
+                return None
             # Checking king safety
             self.make_move(move)
             safety = self._king_is_safe(self._board[move.To].Colour)
             self.unmake_move(move)
-            return safety
-        return False
+            return completed_move if safety else None
+        return None
 
     def make_move(self, move: Move) -> None:
         """
         Make move on the board
         Use board.make_move() to check if move is correct
         """
+        if move.Flags.LoseCastling is not None:
+            this_colour = self._board[move.From].Colour
+            for castling in move.Flags.LoseCastling:
+                self._castling_rights[this_colour][castling] = False
         self._halfmoves += 1
         self._board[move.To] = self._board[move.From]
         self._board[move.From] = Piece.empty()
+        if move.Flags.Castling is not None:
+            if move.Flags.Castling == CastlingType.KingSide:
+                self._board[move.From + 1] = self._board[move.To + 1]
+                self._board[move.To + 1] = Piece.empty()
+            else:
+                self._board[move.From - 1] = self._board[move.To - 2]
+                self._board[move.To - 2] = Piece.empty()
 
     def unmake_move(self, move: Move) -> None:
         """Unmake move on the board (no additional checking)"""
+        if move.Flags.LoseCastling is not None:
+            this_colour = self._board[move.To].Colour
+            for castling in move.Flags.LoseCastling:
+                self._castling_rights[this_colour][castling] = True
         self._halfmoves -= 1
         self._board[move.From] = self._board[move.To]
         self._board[move.To] = move.Captured
+        if move.Flags.Castling is not None:
+            if move.Flags.Castling == CastlingType.KingSide:
+                self._board[move.To + 1] = self._board[move.From + 1]
+                self._board[move.From + 1] = Piece.empty()
+            else:
+                self._board[move.To - 2] = self._board[move.From - 1]
+                self._board[move.From - 1] = Piece.empty()
 
     def get_all_moves(self, colour: PieceColour) -> deque[Move]:
         moves: deque[Move] = deque()
@@ -192,8 +271,8 @@ class Chessboard:
                     piece_from.Colour != colour:
                 continue
             for j, piece_to in enumerate(self._board):
-                move = Move(i, j, piece_to)
-                if self.can_make(move):
+                move = self.can_make(Move(i, j, piece_to))
+                if move is not None:
                     moves.append(move)
         return moves
 
@@ -252,7 +331,7 @@ class Chessboard:
             return False
 
         # Pawns
-        sign_ = 1 if colour == PieceColour.White else -1
+        sign_ = -1 if colour == PieceColour.White else 1
         if self.at(king_x + 1, king_y + sign_) == o_pawn or \
                 self.at(king_x - 1, king_y + sign_) == o_pawn:
             return False
@@ -267,7 +346,6 @@ class Chessboard:
                 self.at(king_x + 2, king_y - 1) == o_knight or \
                 self.at(king_x - 2, king_y - 1) == o_knight:
             return False
-
         # King
         opponent_king_pos = np.where(self._board == o_king)[0][0]
         if self._can_king_make(opponent_king_pos % 8,
@@ -317,7 +395,8 @@ class Chessboard:
     @staticmethod
     def _can_king_make(x1: int, y1: int, x2: int, y2: int) -> bool:
         """Check if king can make move"""
-        return abs(x2 - x1) < 2 and abs(y2 - y1) < 2
+        return (abs(x2 - x1) < 2 and abs(y2 - y1) < 2) or \
+               (abs(x1 - x2) == 2 and y1 == y2)
 
     def _diagonal_is_free(self, x1: int, y1: int, x2: int, y2: int) -> bool:
         """Check if diagonal is free (not included end points)"""
@@ -390,14 +469,12 @@ class Chessboard:
             for castling in fields[2]:
                 if castling.lower() == "q":
                     tmp_board._castling_rights[
-                        CastlingType.WhiteQueen
-                        if castling.isupper()
-                        else CastlingType.BlackQueen] = True
+                        PieceColour.White if castling.isupper()
+                        else PieceColour.Black][CastlingType.QueenSide] = True
                 elif castling.lower() == "k":
                     tmp_board._castling_rights[
-                        CastlingType.WhiteKing
-                        if castling.isupper()
-                        else CastlingType.BlackKing] = True
+                        PieceColour.White if castling.isupper()
+                        else PieceColour.Black][CastlingType.KingSide] = True
                 else:
                     assert False, error_info
         # Parse Fourth field (Possible En Passant Targets)

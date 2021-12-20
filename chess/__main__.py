@@ -74,7 +74,8 @@ def main():
                                 released[0] + released[1] * 8,
                                 board.at(*released))
                     # If we can make move -> let the bot make the next one
-                    if board.can_make(move):
+                    move = board.can_make(move)
+                    if move is not None:
                         board.make_move(move)
                         if board.king_is_safe(COLOUR_OPPONENT):
                             sound_common.play()
