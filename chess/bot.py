@@ -46,10 +46,7 @@ class ChessBot:
     @staticmethod
     def _get_depth(board: Chessboard) -> int:
         halfmoves = board.halfmoves
-        return \
-            2 if halfmoves < 7 else \
-            3 if halfmoves < 25 else \
-            4
+        return 2 if halfmoves < 13 else 4
 
     def _evaluate(self, board_state: Chessboard) -> Number:
         """Resolve position score for this colour"""
