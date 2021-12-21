@@ -1,4 +1,3 @@
-from random import choice
 from time import perf_counter
 from typing import Optional
 
@@ -25,15 +24,12 @@ class ChessBot:
             PieceType.Queen: 9, PieceType.King: 0}
         # Bot's colour
         self._colour = colour
-        # Opponent's (player) colour
-        self._opponent_colour = PieceColour.White \
-            if colour == PieceColour.Black else PieceColour.Black
         # Set randomness to equally good moves
         self._random_state = 0.2
         # Debug variable to log evaluated states amount
         self._count_states = 0
         # Store hashed tables to prune repeated positions
-        self._zobrist_hash: set[int] = set()
+        self._zobrist_hash: dict[int, (Number, Move)] = {}
 
     @staticmethod
     def _get_ordered_moves(board: Chessboard,
@@ -49,83 +45,74 @@ class ChessBot:
         return 2 if halfmoves < 13 else 4
 
     def _evaluate(self, board_state: Chessboard) -> Number:
-        """Resolve position score for this colour"""
+        """Resolve position score for white colour"""
         counter: Number = 0
         for piece in board_state.board:
             # Don't count empty cells
             if piece.Type == PieceType.Empty:
                 continue
             counter += self._scores[piece.Type] * (
-                1 if piece.Colour == self._colour
-                else -1)
+                1 if piece.Colour == PieceColour.White else -1)
         return counter
 
-    def _maxi(self, board_: Chessboard, move_: Move, alpha: Number,
-              beta: Number, depth: int) -> tuple[Number, Move]:
-        """Maxi part of minimax algorithm"""
+    def _minimax(self, board_: Chessboard, move_: Move, alpha: Number,
+                 beta: Number, depth: int,
+                 maximise: bool) -> tuple[Number, Move]:
         # Prune evaluated position
         board_hash = board_.hash()
         if board_hash in self._zobrist_hash:
-            return -np.inf, move_
-        self._zobrist_hash.add(board_hash)
+            return self._zobrist_hash[board_hash]
+        # Initialising best found move variable (score, move)
+        best_state: tuple[Number, Optional[Move]]
         # Simple state evaluation on 0 depth
         if depth < 1:
             return self._evaluate(board_), move_
-        # Initialising best found move variable (score, move)
-        best_state: tuple[Number, Optional[Move]] = -np.inf, None
-        # Iterating through ordered moves to find the best
-        for move in self._get_ordered_moves(board_, self._colour):
-            # Logging
-            self._count_states += 1
-            # Making move on the board
-            board_.make_move(move)
-            # Evaluating the board state
-            score = self._mini(board_, move_, alpha, beta, depth - 1)
-            # Updating the best score
-            if score[0] > best_state[0] or \
-                    (score[0] == best_state[0] and
-                     np.random.exponential(scale=1) < self._random_state):
-                best_state = score[0], move
-            # Unmaking the move (because the board will be used later on)
-            board_.unmake_move(move)
-            # Trying to prune positions' tree
-            alpha = max(alpha, score[0])
-            if beta <= alpha:
-                break
-        return best_state  # type: ignore
-
-    def _mini(self, board_: Chessboard, move_: Move, alpha: Number,
-              beta: Number, depth: int) -> tuple[Number, Move]:
-        """Mini part of minimax algorithm"""
-        # Prune evaluated position
-        board_hash = board_.hash()
-        if board_hash in self._zobrist_hash:
-            return np.inf, move_
-        self._zobrist_hash.add(board_hash)
-        # Simple state evaluation on 0 depth
-        if depth < 1:
-            return self._evaluate(board_), move_
-        # Initialising best found move variable (score, move)
-        best_state: tuple[Number, Optional[Move]] = np.inf, None
-        # Iterating through ordered moves to find the best
-        for move in self._get_ordered_moves(board_, self._opponent_colour):
-            # Logging
-            self._count_states += 1
-            # Making move on the board
-            board_.make_move(move)
-            # Evaluating the board state
-            score = self._maxi(board_, move_, alpha, beta, depth - 1)
-            # Updating the best score
-            if score[0] < best_state[0] or \
-                    (score[0] == best_state[0] and
-                     np.random.exponential(scale=1) < self._random_state):
-                best_state = score[0], move
-            # Unmaking the move (because the board will be used later on)
-            board_.unmake_move(move)
-            # Trying to prune positions' tree
-            beta = min(beta, score[0])
-            if beta <= alpha:
-                break
+        elif maximise:
+            best_state = -np.inf, None
+            # Iterating through ordered moves to find the best
+            for move in self._get_ordered_moves(board_, PieceColour.White):
+                # Logging
+                self._count_states += 1
+                # Making move on the board
+                board_.make_move(move)
+                # Evaluating the board state
+                score = self._minimax(board_, move_, alpha, beta,
+                                      depth - 1, False)
+                # Updating the best score
+                if score[0] > best_state[0] or \
+                        (score[0] == best_state[0] and
+                         np.random.exponential(scale=1) < self._random_state):
+                    best_state = score[0], move
+                # Unmaking the move (because the board will be used later on)
+                board_.unmake_move(move)
+                # Trying to prune positions' tree
+                alpha = max(alpha, score[0])
+                if beta <= alpha:
+                    break
+        else:
+            # Initialising best found move variable (score, move)
+            best_state = np.inf, None
+            # Iterating through ordered moves to find the best
+            for move in self._get_ordered_moves(board_, PieceColour.Black):
+                # Logging
+                self._count_states += 1
+                # Making move on the board
+                board_.make_move(move)
+                # Evaluating the board state
+                score = self._minimax(board_, move_, alpha, beta,
+                                      depth - 1, True)
+                # Updating the best score
+                if score[0] < best_state[0] or \
+                        (score[0] == best_state[0] and
+                         np.random.exponential(scale=1) < self._random_state):
+                    best_state = score[0], move
+                # Unmaking the move (because the board will be used later on)
+                board_.unmake_move(move)
+                # Trying to prune positions' tree
+                beta = min(beta, score[0])
+                if beta <= alpha:
+                    break
+        self._zobrist_hash[board_hash] = best_state
         return best_state  # type: ignore
 
     def get_move(self, board_: Chessboard, last_move_: Move,
@@ -135,16 +122,21 @@ class ChessBot:
         # Depth
         depth = self._get_depth(board_)
         # Hash
-        self._zobrist_hash = set()
+        self._zobrist_hash = {}
+        # Colour
+        bot_side = self._colour == PieceColour.White
         if not debug:
             # Returning result
-            return self._maxi(board_, last_move_, -np.inf, np.inf, depth)[1]
+            return self._minimax(board_, last_move_, -np.inf, np.inf, depth,
+                                 bot_side)[1]
         # Set up performance test
         start = perf_counter()
         # Calculating result
-        result = self._maxi(board_, last_move_, -np.inf, np.inf, depth)[1]
+        result = self._minimax(board_, last_move_, -np.inf, np.inf, depth,
+                               bot_side)
         end = perf_counter()
-        console.log(f"[bold blue]{round(end - start, 1)}[/bold blue]s :"
+        console.log(f"[bold blue]{result[0]}[/bold blue] eval :"
+                    f" [bold blue]{round(end - start, 1)}[/bold blue]s :"
                     f" [bold blue]{self._count_states}[/bold blue] positions :"
                     f" [bold blue]{depth}[/bold blue] depth")
-        return result
+        return result[1]
