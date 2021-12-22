@@ -18,8 +18,9 @@ def main():
     # Creating a board using FEN
     # Start position: rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
     # Advanced:       1r1q3r/3b2bk/p5pp/2QB4/5p2/P5nP/1PP5/2KRR3 b - - 6 12
+    # Pawn promotion: 8/6P1/2Q5/4p3/3qP3/5Q2/1q3PK1/qk6 w - - 0 73
     board = Chessboard.from_fen(
-        "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
+        "8/6P1/2Q5/4p3/3qP3/5Q2/1q3PK1/qk6 w - - 0 73")
     # Colour
     COLOUR_PLAYER = PieceColour.White
     COLOUR_OPPONENT = PieceColour.Black

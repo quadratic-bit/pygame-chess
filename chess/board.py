@@ -182,12 +182,12 @@ class Chessboard:
                     else CastlingType.QueenSide
                 if self._castling_rights[this_piece.Colour][other_side]:
                     lost_castling.add(other_side)
-                move = Move(move.From, move.To, move.Captured,
-                            MoveFlags(Castling=castling,
-                                      LoseCastling=lost_castling))
+                move.Flags = MoveFlags(Castling=castling,
+                                       LoseCastling=lost_castling)
             else:
                 return None
         elif this_piece.Type == PieceType.King:
+            # Losing castling rights after king move
             lost_castling = set()
             if self._castling_rights[this_piece.Colour][
                     CastlingType.KingSide]:
@@ -195,19 +195,17 @@ class Chessboard:
             if self._castling_rights[this_piece.Colour][
                     CastlingType.QueenSide]:
                 lost_castling.add(CastlingType.QueenSide)
-            move = Move(move.From, move.To, move.Captured,
-                        MoveFlags(LoseCastling=lost_castling))
+            move.Flags = MoveFlags(LoseCastling=lost_castling)
         elif this_piece.Type == PieceType.Rook:
+            # Losing castling rights after rook move
             if x1 == 0 and self._castling_rights[this_piece.Colour][
                     CastlingType.QueenSide]:
-                move = Move(move.From, move.To,
-                            move.Captured,
-                            MoveFlags(LoseCastling={CastlingType.QueenSide}))
+                move.Flags = MoveFlags(LoseCastling={CastlingType.QueenSide})
             elif x1 == 7 and self._castling_rights[this_piece.Colour][
                     CastlingType.KingSide]:
-                move = Move(move.From, move.To,
-                            move.Captured,
-                            MoveFlags(LoseCastling={CastlingType.KingSide}))
+                move.Flags = MoveFlags(LoseCastling={CastlingType.KingSide})
+        elif this_piece.Type == PieceType.Pawn and 0 <= move.To <= 7:
+            move.Flags = MoveFlags(PawnPromotion=PieceType.Queen)
         if self._get_validator[this_piece.Type](x1, y1, x2, y2):
             return move
         return None
@@ -222,7 +220,7 @@ class Chessboard:
                 return None
             # Checking king safety
             self.make_move(move)
-            safety = self._king_is_safe(self._board[move.To].Colour)
+            safety = self.king_is_safe(self._board[move.To].Colour)
             self.unmake_move(move)
             return completed_move if safety else None
         return None
@@ -232,13 +230,19 @@ class Chessboard:
         Make move on the board
         Use board.make_move() to check if move is correct
         """
+        # Removing castling rights
         if move.Flags.LoseCastling is not None:
             this_colour = self._board[move.From].Colour
             for castling in move.Flags.LoseCastling:
                 self._castling_rights[this_colour][castling] = False
+        # Moving piece
         self._halfmoves += 1
         self._board[move.To] = self._board[move.From]
         self._board[move.From] = Piece.empty()
+        if move.Flags.PawnPromotion is not None:
+            self._board[move.To] = Piece(move.Flags.PawnPromotion,
+                                         self._board[move.To].Colour)
+        # Doing castling
         if move.Flags.Castling is not None:
             if move.Flags.Castling == CastlingType.KingSide:
                 self._board[move.From + 1] = self._board[move.To + 1]
@@ -249,13 +253,16 @@ class Chessboard:
 
     def unmake_move(self, move: Move) -> None:
         """Unmake move on the board (no additional checking)"""
+        # Returning castling rights
         if move.Flags.LoseCastling is not None:
             this_colour = self._board[move.To].Colour
             for castling in move.Flags.LoseCastling:
                 self._castling_rights[this_colour][castling] = True
+        # Unmoving piece
         self._halfmoves -= 1
         self._board[move.From] = self._board[move.To]
         self._board[move.To] = move.Captured
+        # Undoing castling
         if move.Flags.Castling is not None:
             if move.Flags.Castling == CastlingType.KingSide:
                 self._board[move.To + 1] = self._board[move.From + 1]
@@ -277,9 +284,6 @@ class Chessboard:
         return moves
 
     def king_is_safe(self, colour: PieceColour) -> bool:
-        return self._king_is_safe(colour)
-
-    def _king_is_safe(self, colour: PieceColour) -> bool:
         """Check if king is safe on current board state"""
         king_pos = np.where(self._board == Piece(PieceType.King, colour))[0][0]
         king_x, king_y = king_pos % 8, king_pos // 8
