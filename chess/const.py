@@ -42,9 +42,9 @@ class CastlingType(Enum):
     QueenSide = auto()
 
 
-@dataclass(frozen=True)
+@dataclass()
 class MoveFlags:
-    PawnPromotion: Optional[Piece] = field(default=None)
+    PawnPromotion: Optional[PieceType] = field(default=None)
     Castling: Optional[CastlingType] = field(default=None)
     LoseCastling: Optional[set[CastlingType]] = field(default=None)
 
@@ -70,7 +70,7 @@ PIECE_INDICES: dict[int, int] = {
     PieceType.King.value | PieceColour.Black.value: 11}
 
 
-@dataclass(frozen=True)
+@dataclass()
 class Move:
     From: int
     To: int
