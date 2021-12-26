@@ -11,6 +11,12 @@ Number = Union[float, int]
 console = Console(color_system="256", width=100)
 
 
+class GameState(Enum):
+    Checkmate = auto()
+    Stalemate = auto()
+    Continue = auto()
+
+
 class PieceType(Enum):
     Empty = 0
     Pawn = 1

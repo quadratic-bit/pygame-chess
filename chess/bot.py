@@ -4,7 +4,7 @@ from typing import Optional
 import numpy as np
 
 from chess.board import Chessboard
-from chess.const import PieceType, PieceColour, Move, Number, console
+from chess.const import PieceType, PieceColour, Move, Number
 
 
 class ChessBot:
@@ -115,8 +115,8 @@ class ChessBot:
         self._zobrist_hash[board_hash] = best_state
         return best_state  # type: ignore
 
-    def get_move(self, board_: Chessboard, last_move_: Move,
-                 debug=False) -> Move:
+    def get_move(self, board_: Chessboard,
+                 last_move_: Move) -> tuple[Move, tuple]:
         # Logging
         self._count_states = 0
         # Depth
@@ -125,18 +125,12 @@ class ChessBot:
         self._zobrist_hash = {}
         # Colour
         bot_side = self._colour == PieceColour.White
-        if not debug:
-            # Returning result
-            return self._minimax(board_, last_move_, -np.inf, np.inf, depth,
-                                 bot_side)[1]
         # Set up performance test
         start = perf_counter()
         # Calculating result
         result = self._minimax(board_, last_move_, -np.inf, np.inf, depth,
                                bot_side)
         end = perf_counter()
-        console.log(f"[bold blue]{result[0]}[/bold blue] eval :"
-                    f" [bold blue]{round(end - start, 1)}[/bold blue]s :"
-                    f" [bold blue]{self._count_states}[/bold blue] positions :"
-                    f" [bold blue]{depth}[/bold blue] depth")
-        return result[1]
+        evaluation, dtime, states = \
+            result[0], round(end - start, 1), self._count_states
+        return result[1], (evaluation, dtime, states, depth)

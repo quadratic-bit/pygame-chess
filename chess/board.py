@@ -9,7 +9,7 @@ import numpy as np
 import pygame
 
 from chess.const import PieceType, PieceColour, Piece, CastlingType, Move, \
-    PIECE_INDICES, init_zobrist, MoveFlags
+    PIECE_INDICES, init_zobrist, MoveFlags, GameState
 from chess.utils import load_image
 
 
@@ -59,7 +59,13 @@ class Chessboard:
         self._dark_colour = pygame.Color(dark_colour)
         self._light_complementary = pygame.Color("#DBAB84")
         self._dark_complementary = pygame.Color("#DBC095")
+        self._move_colour = pygame.Color("#8D80AD")
+        self._bg_colour = pygame.Color("#443742")
         self._side = 100  # px
+        self._font_size = 45
+        self._font_gap = 15
+        self._font = pygame.font.SysFont("arial", self._font_size)
+        self._font_colour = pygame.Color("white")
 
     @property
     def board(self) -> np.ndarray:
@@ -68,6 +74,10 @@ class Chessboard:
     @property
     def halfmoves(self) -> int:
         return self._halfmoves
+
+    @property
+    def active_colour(self) -> PieceColour:
+        return self._active_colour
 
     def hash(self) -> int:
         h = 0
@@ -86,17 +96,22 @@ class Chessboard:
         self._dark_complementary = pygame.Color(dark_complementary)
 
     def render(self, screen: pygame.Surface,
-               last_move=None, skip=None, pos=None) -> None:
+               last_move=None, skip=None, pos=None, game_info=None) -> None:
         """Render chessboard"""
         if skip is not None and pos is None:
             raise ValueError("skip is not None but pos is None")
-        screen.fill(self._dark_colour)
+        screen.fill(self._bg_colour)
         group = pygame.sprite.Group()
         path = os.path.dirname(os.path.abspath(__file__))
         grabbed_data = None
+        can_move_now = None if skip is None else self._get_all_piece_moves(skip[0] + skip[1] * 8)
         for i, piece in enumerate(self._board):
             x, y = i % 8, i // 8
-            if last_move is not None and last_move.From == i:
+            if pos is not None and i in can_move_now:
+                pygame.draw.rect(screen, self._move_colour,
+                                 (x * self._side, y * self._side,
+                                  self._side, self._side))
+            elif last_move is not None and last_move.From == i:
                 pygame.draw.rect(screen, self._light_complementary,
                                  (x * self._side, y * self._side,
                                   self._side, self._side))
@@ -104,8 +119,12 @@ class Chessboard:
                 pygame.draw.rect(screen, self._dark_complementary,
                                  (x * self._side, y * self._side,
                                   self._side, self._side))
-            elif (x + y) % 2 == 0:
-                pygame.draw.rect(screen, self._light_colour,
+            else:
+                if (x + y) % 2 == 0:
+                    colour = self._light_colour
+                else:
+                    colour = self._dark_colour
+                pygame.draw.rect(screen, colour,
                                  (x * self._side, y * self._side,
                                   self._side, self._side))
             if piece.Type == PieceType.Empty:
@@ -128,12 +147,41 @@ class Chessboard:
             grabbed_piece.rect.x = pos[0] - 50  # type: ignore
             grabbed_piece.rect.y = pos[1] - 50  # type: ignore
         group.draw(screen)
+        text = ["Ход " + ("белых"
+                          if self._active_colour == PieceColour.White
+                          else "чёрных")]
+        if game_info is not None:
+            text.extend([f"Оценка: {game_info[0]}",
+                         f"Позиций: {game_info[2]}",
+                         f"Глубина: {game_info[3]}",
+                         f"Время: {game_info[1]}с"])
+        line_pos = (screen.get_rect().h -
+                    len(text) * (self._font_size + self._font_gap) -
+                    self._font_gap) // 2
+        for line in text:
+            line_rendered = self._font.render(line, True, self._font_colour)
+            l_rect = line_rendered.get_rect()
+            screen.blit(line_rendered, (800 + (400 - l_rect.w) // 2, line_pos))
+            line_pos += self._font_size + self._font_gap
 
     def at(self, x: int, y: int) -> Piece:
         """Get piece from position on the board"""
         if 0 <= x <= 7 and 0 <= y <= 7:
             return self._board[x + y * 8]
         return Piece.empty()
+
+    def toggle_state(self) -> GameState:
+        """Return game state after active colour move"""
+        other_colour = PieceColour.Black \
+            if self._active_colour == PieceColour.White \
+            else PieceColour.White
+        self._active_colour = other_colour
+        if self.get_all_moves(other_colour):
+            return GameState.Continue
+        elif self.king_is_safe(other_colour):
+            return GameState.Stalemate
+        else:
+            return GameState.Checkmate
 
     def _force_can_make(self, move: Move) -> Optional[Move]:
         """
@@ -262,6 +310,10 @@ class Chessboard:
         self._halfmoves -= 1
         self._board[move.From] = self._board[move.To]
         self._board[move.To] = move.Captured
+        # Demoting pawn
+        if move.Flags.PawnPromotion is not None:
+            self._board[move.From] = Piece(PieceType.Pawn,
+                                           self._board[move.From].Colour)
         # Undoing castling
         if move.Flags.Castling is not None:
             if move.Flags.Castling == CastlingType.KingSide:
@@ -281,6 +333,14 @@ class Chessboard:
                 move = self.can_make(Move(i, j, piece_to))
                 if move is not None:
                     moves.append(move)
+        return moves
+
+    def _get_all_piece_moves(self, pos: int) -> deque[int]:
+        moves: deque[int] = deque()
+        for i, piece_to in enumerate(self._board):
+            move = self.can_make(Move(pos, i, piece_to))
+            if move is not None:
+                moves.append(move.To)
         return moves
 
     def king_is_safe(self, colour: PieceColour) -> bool:
@@ -371,7 +431,8 @@ class Chessboard:
         return (not to_capture and
                 (y1 == 1 or y1 == 6) and
                 y2 - y1 == direction * 2 and
-                dx == 0)
+                dx == 0 and self._board[y1 * 8 + x1 + direction * 8].Type ==
+                PieceType.Empty)
 
     @staticmethod
     def _can_knight_make(x1: int, y1: int, x2: int, y2: int) -> bool:
