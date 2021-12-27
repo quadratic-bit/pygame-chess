@@ -102,7 +102,6 @@ class Chessboard:
             raise ValueError("skip is not None but pos is None")
         screen.fill(self._bg_colour)
         group = pygame.sprite.Group()
-        path = os.path.dirname(os.path.abspath(__file__))
         grabbed_data = None
         can_move_now = None if skip is None else self._get_all_piece_moves(skip[0] + skip[1] * 8)
         for i, piece in enumerate(self._board):
@@ -130,18 +129,12 @@ class Chessboard:
             if piece.Type == PieceType.Empty:
                 continue
             elif (x, y) == skip:
-                grabbed_data = os.path.join(
-                    path, "data",
-                    f"{self._get_piece_str[piece.Type]}_"
-                    f"{'w' if piece.Colour == PieceColour.White else 'b'}.png"
-                ), i, group
+                grabbed_data = f"{self._get_piece_str[piece.Type]}_{'w' if piece.Colour == PieceColour.White else 'b'}.png", i, group
             else:
                 PieceSprite(
-                    os.path.join(
-                        path, "data",
                         f"{self._get_piece_str[piece.Type]}_"
                         f"{'w' if piece.Colour == PieceColour.White else 'b'}"
-                        f".png"), i, group)
+                        f".png", i, group)
         if grabbed_data is not None:
             grabbed_piece = PieceSprite(*grabbed_data)
             grabbed_piece.rect.x = pos[0] - 50  # type: ignore

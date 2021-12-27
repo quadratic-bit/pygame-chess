@@ -1,4 +1,4 @@
-import os
+from sys import exit
 from typing import Optional
 
 import pygame
@@ -33,9 +33,8 @@ def main():
     COLOUR_PLAYER = PieceColour.White
     COLOUR_OPPONENT = PieceColour.Black
     # Sounds
-    path = os.path.dirname(os.path.abspath(__file__))
-    sound_common = pygame.mixer.Sound(os.path.join(path, "data", "common.ogg"))
-    sound_check = pygame.mixer.Sound(os.path.join(path, "data", "check.ogg"))
+    sound_common = pygame.mixer.Sound("chess/data/common.ogg")
+    sound_check = pygame.mixer.Sound("chess/data/check.ogg")
     # Initialising the AI
     bot = ChessBot()
     # Defining variables to interact with player
