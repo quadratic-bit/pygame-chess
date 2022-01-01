@@ -9,4 +9,3 @@ def load_image(name: str) -> pygame.surface.Surface:
     if not os.path.isfile(path):
         raise ValueError(f"File {path} is not found")
     return pygame.image.load(path).convert_alpha()
-

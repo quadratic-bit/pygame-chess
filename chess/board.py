@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import math
-import os
 from collections import deque
 from typing import Optional, Callable
 
@@ -103,6 +102,7 @@ class Chessboard:
         screen.fill(self._bg_colour)
         group = pygame.sprite.Group()
         grabbed_data = None
+        skip: Optional[tuple[int]]
         can_move_now = None if skip is None else self._get_all_piece_moves(skip[0] + skip[1] * 8)
         for i, piece in enumerate(self._board):
             x, y = i % 8, i // 8
@@ -129,12 +129,13 @@ class Chessboard:
             if piece.Type == PieceType.Empty:
                 continue
             elif (x, y) == skip:
-                grabbed_data = f"{self._get_piece_str[piece.Type]}_{'w' if piece.Colour == PieceColour.White else 'b'}.png", i, group
+                grabbed_data = f"{self._get_piece_str[piece.Type]}_" \
+                               f"{'w' if piece.Colour == PieceColour.White else 'b'}.png", i, group
             else:
                 PieceSprite(
-                        f"{self._get_piece_str[piece.Type]}_"
-                        f"{'w' if piece.Colour == PieceColour.White else 'b'}"
-                        f".png", i, group)
+                    f"{self._get_piece_str[piece.Type]}_"
+                    f"{'w' if piece.Colour == PieceColour.White else 'b'}"
+                    f".png", i, group)
         if grabbed_data is not None:
             grabbed_piece = PieceSprite(*grabbed_data)
             grabbed_piece.rect.x = pos[0] - 50  # type: ignore
@@ -230,20 +231,16 @@ class Chessboard:
         elif this_piece.Type == PieceType.King:
             # Losing castling rights after king move
             lost_castling = set()
-            if self._castling_rights[this_piece.Colour][
-                    CastlingType.KingSide]:
+            if self._castling_rights[this_piece.Colour][CastlingType.KingSide]:
                 lost_castling.add(CastlingType.KingSide)
-            if self._castling_rights[this_piece.Colour][
-                    CastlingType.QueenSide]:
+            if self._castling_rights[this_piece.Colour][CastlingType.QueenSide]:
                 lost_castling.add(CastlingType.QueenSide)
             move.Flags = MoveFlags(LoseCastling=lost_castling)
         elif this_piece.Type == PieceType.Rook:
             # Losing castling rights after rook move
-            if x1 == 0 and self._castling_rights[this_piece.Colour][
-                    CastlingType.QueenSide]:
+            if x1 == 0 and self._castling_rights[this_piece.Colour][CastlingType.QueenSide]:
                 move.Flags = MoveFlags(LoseCastling={CastlingType.QueenSide})
-            elif x1 == 7 and self._castling_rights[this_piece.Colour][
-                    CastlingType.KingSide]:
+            elif x1 == 7 and self._castling_rights[this_piece.Colour][CastlingType.KingSide]:
                 move.Flags = MoveFlags(LoseCastling={CastlingType.KingSide})
         elif this_piece.Type == PieceType.Pawn and 0 <= move.To <= 7:
             move.Flags = MoveFlags(PawnPromotion=PieceType.Queen)
@@ -458,10 +455,10 @@ class Chessboard:
 
     def _diagonal_is_free(self, x1: int, y1: int, x2: int, y2: int) -> bool:
         """Check if diagonal is free (not included end points)"""
-        signX = int(math.copysign(1, x2 - x1))
-        signY = int(math.copysign(1, y2 - y1))
-        for x, y in zip(range(x1 + signX, x2, signX),
-                        range(y1 + signY, y2, signY)):
+        sign_x = int(math.copysign(1, x2 - x1))
+        sign_y = int(math.copysign(1, y2 - y1))
+        for x, y in zip(range(x1 + sign_x, x2, sign_x),
+                        range(y1 + sign_y, y2, sign_y)):
             if self._board[y * 8 + x].Type != PieceType.Empty:
                 return False
         return True

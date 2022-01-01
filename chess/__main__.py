@@ -1,5 +1,5 @@
 from sys import exit
-from typing import Optional
+from typing import Optional, Final
 
 import pygame
 from rich.traceback import install
@@ -19,7 +19,7 @@ def terminate() -> None:
 def main():
     # Pygame setup
     pygame.init()
-    SCREEN_W, SCREEN_H = SCREEN_SHAPE = 1200, 800
+    SCREEN_W, SCREEN_H = SCREEN_SHAPE = 1200, 800  # type: Final
     screen = pygame.display.set_mode(SCREEN_SHAPE)
     pygame.display.set_caption("Chess")
     # Creating a board using FEN
