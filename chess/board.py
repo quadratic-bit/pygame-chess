@@ -78,6 +78,10 @@ class Chessboard:
     def active_colour(self) -> PieceColour:
         return self._active_colour
 
+    @property
+    def passive_colour(self) -> PieceColour:
+        return PieceColour.White if self._active_colour == PieceColour.Black else PieceColour.Black
+
     def hash(self) -> int:
         h = 0
         for i in range(64):
