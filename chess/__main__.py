@@ -159,6 +159,8 @@ def main():
         """Main game loop"""
         nonlocal grabbing, hovering, last_move
 
+        # My linter can't handle unsigned variables like these
+        bot = last_move_uncaught = None
         if vs_ai:
             # Initialising the AI
             bot = ChessBot()
@@ -217,7 +219,7 @@ def main():
                     # Rendering board after releasing piece
                     board.render(screen, last_move, game_info=board_info)
                     pygame.display.flip()
-                    if vs_ai:
+                    if vs_ai and last_move_uncaught is not None and bot is not None:
                         # Bot's turn
                         if last_move is not None and last_move_uncaught:
                             last_move, board_info = bot.get_move(board, last_move)
