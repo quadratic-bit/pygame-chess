@@ -9,7 +9,7 @@ import pygame
 
 from chess.const import PieceType, PieceColour, Piece, CastlingType, Move, \
     PIECE_INDICES, init_zobrist, MoveFlags, GameState
-from chess.utils import load_image
+from chess.utils import load_image, load_font
 
 
 class Chessboard:
@@ -63,7 +63,7 @@ class Chessboard:
         self._side = 100  # px
         self._font_size = 45
         self._font_gap = 15
-        self._font = pygame.font.SysFont("arial", self._font_size)
+        self._font = load_font("ubuntumono/UbuntuMono-R.ttf", self._font_size)
         self._font_colour = pygame.Color("white")
 
     @property
@@ -207,6 +207,7 @@ class Chessboard:
         y1, y2 = move.From // 8, move.To // 8
         x1, x2 = move.From % 8, move.To % 8
         # Castling
+        # TODO: Fix (and optimise?) this broken castling (really broken)
         if this_piece.Type == PieceType.King and \
                 y1 == y2 and abs(x1 - x2) == 2 \
                 and move.Captured == Piece.empty():
