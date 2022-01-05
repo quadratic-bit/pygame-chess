@@ -51,9 +51,13 @@ def main():
 
     def start_screen() -> None:
         """Start screen"""
-        nonlocal screen
+        nonlocal screen, font_header, font_option
         bg_start_img = pygame.transform.scale(load_image('bg_start.png'), SCREEN_SHAPE)
+        title = font_header.render("Шахматы", True, pygame.Color("white"))
+        option = font_option.render("Нажмите любую клавишу...", True, pygame.Color("white"))
         screen.blit(bg_start_img, (0, 0))
+        screen.blit(title, (420, 200))
+        screen.blit(option, (270, 650))
         pygame.display.flip()
         start_waiting = True
         while start_waiting:
@@ -110,14 +114,16 @@ def main():
                          (0, 0, SCREEN_W, SCREEN_H))
         scaffold.set_alpha(0)
         screen.blit(scaffold, (0, 0))
-        mate = pygame.font.SysFont("arial", 80).render(
+        end_font = load_font("ubuntumono/UbuntuMono-R.ttf", 90)
+        end_font_colour = pygame.Color("white")
+        mate = end_font.render(
             "Мат!"
             if state == GameState.Checkmate
-            else "Пат!", True, pygame.Color("white"))
-        score = pygame.font.SysFont("arial", 80).render(
+            else "Пат!", True, end_font_colour)
+        score = end_font.render(
             "0-1"
             if board.active_colour == PieceColour.White
-            else "1-0", True, pygame.Color("white"))
+            else "1-0", True, end_font_colour)
         bg = pygame.Surface((600, 400))
         bg.fill(pygame.Color("black"))
         bg.set_alpha(180)
@@ -135,6 +141,7 @@ def main():
         screen.blit(score, (300 + sdx, 200 + sdy))
         pygame.display.flip()
         pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_ARROW)
+        # TODO: Add restart feature
         while True:
             for e in pygame.event.get():
                 if e.type == pygame.QUIT:
