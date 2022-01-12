@@ -35,7 +35,8 @@ class ChessBot:
     def _get_ordered_moves(board: Chessboard,
                            colour: PieceColour) -> list[Move]:
         """Order moves to reduce amount of states to evaluate"""
-        moves = list(board.get_all_moves(colour))
+        # No castling because bot can't perform it properly
+        moves = list(board.get_all_moves(colour, no_castling=True))
         moves.sort(reverse=True)
         return moves
 

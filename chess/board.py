@@ -194,11 +194,6 @@ class Chessboard:
         # Can't make move w/o piece itself
         if this_piece.Type == PieceType.Empty:
             return None
-        # Resolving colours and types
-        # # Can't make move when it's not your turn
-        # if this_piece[0] != self._active_colour:
-        #     return False
-        # # Lines above will complicate debugging
         # Can't eat pieces of your colour
         if other_piece.Type != PieceType.Empty and \
                 other_piece.Colour == this_piece.Colour:
@@ -207,7 +202,6 @@ class Chessboard:
         y1, y2 = move.From // 8, move.To // 8
         x1, x2 = move.From % 8, move.To % 8
         # Castling
-        # TODO: Fix (and optimise?) this broken castling (really broken)
         if this_piece.Type == PieceType.King and \
                 y1 == y2 and abs(x1 - x2) == 2 \
                 and move.Captured == Piece.empty():
@@ -318,7 +312,7 @@ class Chessboard:
                 self._board[move.To - 2] = self._board[move.From - 1]
                 self._board[move.From - 1] = Piece.empty()
 
-    def get_all_moves(self, colour: PieceColour) -> deque[Move]:
+    def get_all_moves(self, colour: PieceColour, no_castling=False) -> deque[Move]:
         moves: deque[Move] = deque()
         for i, piece_from in enumerate(self._board):
             if piece_from.Type == PieceType.Empty or \
@@ -326,7 +320,7 @@ class Chessboard:
                 continue
             for j, piece_to in enumerate(self._board):
                 move = self.can_make(Move(i, j, piece_to))
-                if move is not None:
+                if move is not None and (not no_castling or move.Flags.Castling is None):
                     moves.append(move)
         return moves
 
