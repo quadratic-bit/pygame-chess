@@ -36,7 +36,8 @@ def main():
     # Advanced:       1r1q3r/3b2bk/p5pp/2QB4/5p2/P5nP/1PP5/2KRR3 b - - 6 12
     # Pawn promotion: 8/6P1/2Q5/4p3/3qP3/5Q2/1q3PK1/qk6 w - - 36 73
     # Checkmate:      3rkbnr/1p1bp3/1q1p3p/p5p1/3n4/PPR2Q2/5PPP/6K1 w - - 1 2
-    board = Chessboard.from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
+    fen_game_state = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+    board = Chessboard.from_fen(fen_game_state)
     # Sounds
     sound_common = load_sound("common.ogg")
     sound_check = load_sound("check.ogg")
@@ -49,6 +50,8 @@ def main():
     # Render Flag
     last_move: Optional[Move] = None
 
+    # Defining game loop functions
+
     def start_screen() -> None:
         """Start screen"""
         nonlocal screen, font_header, font_option
@@ -59,14 +62,12 @@ def main():
         screen.blit(title, (420, 200))
         screen.blit(option, (270, 650))
         pygame.display.flip()
-        start_waiting = True
-        while start_waiting:
+        while True:
             for event_ in pygame.event.get():
                 if event_.type == pygame.QUIT:
                     terminate()
                 elif event_.type == pygame.KEYDOWN or event_.type == pygame.MOUSEBUTTONDOWN:
-                    start_waiting = False
-                    break
+                    return
             clock.tick(FPS)
 
     def choose_game_mode_screen() -> bool:
@@ -141,19 +142,21 @@ def main():
         screen.blit(score, (300 + sdx, 200 + sdy))
         pygame.display.flip()
         pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_ARROW)
-        # TODO: Add restart feature
         while True:
             for e in pygame.event.get():
                 if e.type == pygame.QUIT:
                     terminate()
+                elif e.type == pygame.KEYDOWN or e.type == pygame.MOUSEBUTTONDOWN:
+                    return
 
-    def toggle_state(board_state: tuple) -> None:
+    def toggle_state(board_state: tuple) -> bool:
         """Check and toggle game state (for endgames especially)"""
         state = board.toggle_state()
         if state == GameState.Continue:
-            return
+            return False
         else:
             end_screen(state, board_state)
+            return True
 
     def game_loop(vs_ai: bool) -> None:
         """Main game loop"""
@@ -213,7 +216,8 @@ def main():
                                 sound_check.play()
                             last_move = move
                             last_move_uncaught = True
-                            toggle_state(board_info)
+                            if toggle_state(board_info):
+                                return
                     # Stop grabbing
                     grabbing = None
                     # Rendering board after releasing piece
@@ -228,7 +232,8 @@ def main():
                                 sound_common.play()
                             else:
                                 sound_check.play()
-                            toggle_state(board_info)
+                            if toggle_state(board_info):
+                                return
                             # Updating flag
                             last_move_uncaught = False
                             # Rendering board after bot's turn
@@ -259,7 +264,11 @@ def main():
 
     # Starting the game
     start_screen()
-    game_loop(choose_game_mode_screen())
+    while True:
+        # Main loop
+        game_loop(choose_game_mode_screen())
+        # Resetting the board
+        board = Chessboard.from_fen(fen_game_state)
 
 
 if __name__ == "__main__":
